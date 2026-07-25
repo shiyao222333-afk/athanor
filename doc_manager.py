@@ -544,6 +544,27 @@ def _clean_doc_images(points: list) -> int:
     return cleaned
 
 
+def _purge_ingest_log_by_doc(doc_id: str) -> int:
+    """删除 ingest_log.jsonl 中指定 doc_id 的行（清理内容去重指纹），返回移除条数。
+
+    根因修复：原 delete_document 只删 Qdrant 向量点、未清 ingest_log 中的 content_hash
+    记录，导致同一内容再次摄入时被 skip_duplicates 误判为重复而跳过（验收「同一份提交
+    多次」时第 2 次必超时）。删除文档须同步清指纹，否则去重注册成孤儿。
+    """
+    try:
+        entries = read_ingest_log()
+        kept = [e for e in entries if e.get("doc_id") != doc_id]
+        removed = len(entries) - len(kept)
+        if removed:
+            with open(INGEST_LOG_PATH, "w", encoding="utf-8") as f:
+                for e in kept:
+                    f.write(json.dumps(e, ensure_ascii=False) + "\n")
+        return removed
+    except Exception as e:
+        logger.warning(f"[IngestLog] 清理指纹失败（可忽略）: {e}")
+        return 0
+
+
 def delete_document(doc_id: str, collection: str = DEFAULT_COLLECTION) -> dict:
     """
     删除指定文档的所有分块。
@@ -579,7 +600,9 @@ def delete_document(doc_id: str, collection: str = DEFAULT_COLLECTION) -> dict:
                 # 删除 HTTP 失败：显式报错，不假装成功（与 R12 同款修复）
                 return {"ok": False, "error": f"删除失败: HTTP {del_resp.status_code}"}
 
-        return {"ok": True, "deleted": deleted, "doc_id": doc_id, "doc_uid": doc_id, "images_cleaned": cleaned}
+        removed_log = _purge_ingest_log_by_doc(doc_id)
+        return {"ok": True, "deleted": deleted, "doc_id": doc_id, "doc_uid": doc_id,
+                "images_cleaned": cleaned, "ingest_log_removed": removed_log}
 
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -622,7 +645,8 @@ def delete_points_by_doc_id(doc_id: str, collection: str = DEFAULT_COLLECTION) -
                 break
 
         if not point_ids:
-            return {"ok": True, "deleted": 0, "doc_id": doc_id}
+            return {"ok": True, "deleted": 0, "doc_id": doc_id,
+                    "ingest_log_removed": _purge_ingest_log_by_doc(doc_id)}
 
         deleted = 0
         for i in range(0, len(point_ids), 1000):
@@ -637,7 +661,8 @@ def delete_points_by_doc_id(doc_id: str, collection: str = DEFAULT_COLLECTION) -
             else:
                 # 删除 HTTP 失败：显式报错，不再假装清理成功（修复 R12）
                 return {"ok": False, "error": f"删除失败: HTTP {del_resp.status_code}"}
-        return {"ok": True, "deleted": deleted, "doc_id": doc_id}
+        return {"ok": True, "deleted": deleted, "doc_id": doc_id,
+                "ingest_log_removed": _purge_ingest_log_by_doc(doc_id)}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
