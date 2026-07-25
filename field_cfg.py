@@ -132,8 +132,8 @@ FIELD_DISPLAY_CFG = {
             5: "⭐⭐⭐⭐⭐",
         },
     },
-    "project_source": {
-        "zh": "关联项目",
+    "source_project": {
+        "zh": "来源项目",
         "group": "知识属性",
         "required": False,
         "editable": True,

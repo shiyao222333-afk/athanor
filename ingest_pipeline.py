@@ -15,7 +15,7 @@ Ingest Pipeline — Qdrant payload builder（入库组装线）.
        —— 这里会先过一遍"枚举守卫"(normalize_facet_values) 和生命周期归一
           (normalize_lifecycle)，把 AI 写偏的类别纠正回标准词。
     3. normalize_free_text_fields（受控词表校验，#28/#37 挂载点）：
-       把 tags/keywords/udc_code 对照词表归一，未受控的打 needs_review 标记。
+       把 subject/keywords/udc_code 对照词表归一，未受控的打 needs_review 标记。
        这是"两条摄入路线唯一汇合点"上的关键一步——守望夹和网页上传都从这儿过。
     4. 调试开关（#44）：若系统配置页打开了"强制所有摄入进待审核"，这里直接把
        needs_review 置 True。因为挂在 build_payloads，开关对所有来源一次性生效。
@@ -117,13 +117,12 @@ def _prepare_metadata(base_meta: dict, text: str, source: str, file_path: str) -
         "epistemic_status": facet_norm["epistemic_status"],
         # 生命周期（#41：经枚举守卫归一，避免 AI 写出"草稿中"等花样）
         "lifecycle":      normalize_lifecycle(base_meta.get("lifecycle", "published")),
-        "project_source":  base_meta.get("project_source") or "无",
+        "source_project": base_meta.get("source_project"),
         "udc_code":        base_meta.get("udc_code", ""),
         # 知识管理
         "knowledge_type":  base_meta.get("knowledge_type", ""),
         "is_personal":    base_meta.get("is_personal", False),
         "trust_score":    base_meta.get("trust_score", 3),
-        "tags":           base_meta.get("tags", []),
         "is_canonical":   base_meta.get("is_canonical", True),
         "relations":      base_meta.get("relations", []),
         "keywords":       base_meta.get("keywords", []),
@@ -162,7 +161,6 @@ def _prepare_metadata(base_meta: dict, text: str, source: str, file_path: str) -
         "ext_text3": base_meta.get("ext_text3"),
         "ext_text4": base_meta.get("ext_text4"),
         "ext_text5": base_meta.get("ext_text5"),
-        "ext_num1":  base_meta.get("ext_num1"),
         "ext_num2":  base_meta.get("ext_num2"),
         "ext_num3":  base_meta.get("ext_num3"),
         "ext_bool1": base_meta.get("ext_bool1"),
@@ -277,13 +275,12 @@ def _build_point(chunk: str, vec: list, i: int, total_chunks: int,
         "epistemic_status": m["epistemic_status"],
         # 生命周期
         "lifecycle":      m["lifecycle"],
-        "project_source":  m["project_source"],
+        "source_project": m["source_project"],
         "udc_code":        m["udc_code"],
         # 知识管理
         "knowledge_type":  m["knowledge_type"],
         "is_personal":    m["is_personal"],
         "trust_score":    m["trust_score"],
-        "tags":           m["tags"] if isinstance(m["tags"], list) else [],
         "is_canonical":   m["is_canonical"],
         "relations":      m["relations"] if isinstance(m["relations"], list) else [],
         "keywords":       m["keywords"] if isinstance(m["keywords"], list) else [],
@@ -328,7 +325,7 @@ def _build_point(chunk: str, vec: list, i: int, total_chunks: int,
                               m.get("ext_text4"), m.get("ext_text5")], 1):
         if val is not None:
             payload[f"ext_text{i}"] = val
-    for i, val in enumerate([m.get("ext_num1"), m.get("ext_num2"), m.get("ext_num3")], 1):
+    for i, val in enumerate([m.get("ext_num2"), m.get("ext_num3")], 1):
         if val is not None:
             payload[f"ext_num{i}"] = val
     for i, val in enumerate([m.get("ext_bool1"), m.get("ext_bool2"), m.get("ext_bool3")], 1):
@@ -382,7 +379,7 @@ def build_payloads(
 
     # 准备元数据（注入 ingested_at）
     metadata = _prepare_metadata(base_meta, text, source, file_path)
-    # #28 受控词表校验（#37 挂载点）：udc_code/tags/keywords 归一化，
+    # #28 受控词表校验（#37 挂载点）：udc_code/subject/keywords 归一化，
     # 任一字段存在未受控值 → metadata["needs_review"]=True → 进「待审核」队列。
     # 此挂载点在 build_payloads 内、两条摄入路线（守望夹 + UI 上传）唯一汇合处，
     # 故一处接入同时覆盖两者；doc_id 用于日志定位。

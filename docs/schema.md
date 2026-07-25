@@ -20,7 +20,7 @@
 > v5.0 重大变更（2026-06-16）：
 > - domain: 自定义9域 → UDC 9主类（国际十进分类法）
 > - 分面3: lifecycle → temporal_nature（lifecycle 降级为普通字段）
-> - 分面4: project_source → epistemic_status（project_source 降级为普通字段）
+> - 分面4: project_source → epistemic_status（project_source 已废弃，溯源由 hook 写 source_project 取代；tags 已废弃，形式题材由 subject 接管）
 > - 移除: objectivity（被 content_type + epistemic_status 联合覆盖）
 > - 新增普通字段: udc_code（UDC 细分码）
 
@@ -105,9 +105,9 @@
 
 不再作为 Payload Index 分面，降级为普通字段。仍支持 Qdrant filter。
 
-### 来源项目 project_source（普通字段，可选）
+### 来源项目（已废弃）
 
-自由文本，当前默认值为 `""`。未来在「引擎配置」中维护项目列表后可升级回分面。
+`project_source` 已由 hook 写入的 `source_project`（如 `"albedo-refined"`）取代，不再作为 payload 字段；形式题材标签 `tags` 也已废弃，由 `subject` 接管。详见 `albedo-citrinitas-handoff-spec.md` §2.3。
 
 ### UDC 细分码 udc_code（普通字段，可选）
 
@@ -228,7 +228,7 @@ LLM 自由输出任意精度的 UDC 类号，如 `"621"` / `"621.39"` / `"621:00
 
   "content_type": "standard", "domain": ["0", "6"],
   "temporal_nature": "evergreen", "epistemic_status": "corroborated",
-  "lifecycle": "published", "project_source": "", "udc_code": "621",
+  "lifecycle": "published", "source_project": "albedo-refined", "udc_code": "621",
 
   "knowledge_type": "standard", "is_personal": false,
   "trust_score": 5, "tags": ["齿轮", "模数"],
@@ -282,7 +282,7 @@ LLM 自由输出任意精度的 UDC 类号，如 `"621"` / `"621.39"` / `"621:00
 | `target_platform` | keyword | 平台过滤 |
 | `language` | keyword | 语言过滤 |
 | `access_level` | keyword | 权限过滤 |
-| `project_source` | keyword | 普通字段（未来可升级） |
+| `source_project` | keyword | 溯源标记（hook 写入，如 albedo-refined；取代已废弃的 project_source） |
 | `needs_review` | bool | 审核标记（知识中枢页面筛选待审核条目） |
 
 ---
@@ -365,7 +365,7 @@ LLM 分析文本语义推断的字段。**后备来源**：文件无 `title`/`au
 
 | 字段 | 默认值 | 未来可能来源 |
 |------|--------|--------------|
-| `project_source` | `""` | 引擎配置的项目列表 |
+| `source_project` | `""` | 溯源标记（hook 写入，取代已废弃的 project_source） |
 | `target_platform` | `"none"` | 内容发布（Elixir 模块） |
 | `related_product` | `""` | 产品关联（Crucible 模块） |
 | `tags` | `[]` | 用户自定义（远期） |

@@ -70,10 +70,9 @@ def classify_payload(payload: dict) -> list:
     udc = payload.get("udc_code", "")
     if udc and vb.normalize_udc(udc) is None:
         problems.append("udc_uncontrolled")
-    for t in (payload.get("tags") or []):
-        if t and vb.normalize_theme(str(t)) is None:
-            problems.append("tag_uncontrolled")
-            break
+    subj = payload.get("subject")
+    if subj and vb.normalize_theme(str(subj)) is None:
+        problems.append("subject_uncontrolled")
     for k in (payload.get("keywords") or []):
         if k and vb.normalize_keyword(str(k)) is None:
             problems.append("keyword_uncontrolled")
@@ -90,8 +89,9 @@ def normalize_doc_payload(payload: dict) -> dict:
     udc = payload.get("udc_code", "")
     if udc:
         out["udc_code"] = vb.normalize_udc(udc) or ""   # 未受控清空
-    tags = payload.get("tags") or []
-    out["tags"] = [vb.normalize_theme(str(t)) or str(t).strip() for t in tags if t]
+    subj = payload.get("subject")
+    if subj:
+        out["subject"] = vb.normalize_theme(str(subj)) or str(subj).strip()
     kws = payload.get("keywords") or []
     out["keywords"] = [vb.normalize_keyword(str(k)) or str(k).strip() for k in kws if k]
     return out
@@ -184,7 +184,7 @@ def fix_normalize(collection: str, limit: int = 50000):
         )
         if resp.status_code == 200:
             fixed += 1
-    print(f"🔧 已归并 {fixed} 个 point 的受控字段（udc 未受控清空、tags/keywords 同义词归并；"
+    print(f"🔧 已归并 {fixed} 个 point 的受控字段（udc 未受控清空、subject/keywords 同义词归并；"
           f"修正后无受控问题的同时清掉待审核标记）")
 
 

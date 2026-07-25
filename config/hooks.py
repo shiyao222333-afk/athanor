@@ -59,7 +59,7 @@ def get_hooks() -> list:
 _CONTRACT_KEYS = {
     "content_type", "temporal_nature", "epistemic_status", "trust_score",
     "knowledge_type", "is_personal", "subject", "keywords", "auto_summary",
-    "ext_num1", "ext_text1", "refined_status", "publish_date",
+    "ext_text1", "refined_status", "publish_date",
     # 溯源与语言（2026-07-21 修复）：炼真实产，强制覆盖遏制熔知分类器 LLM 漂移
     "language", "title", "author", "source_url", "up_name",
 }

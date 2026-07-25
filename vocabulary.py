@@ -19,7 +19,7 @@
     3. 对三个自由文本字段分别处理：
        - udc_code：受控细分码。命中→标准码；未命中→清空
          （错码比空更糟，会污染检索/展示，所以宁可清空）；
-       - tags（题材）/ keywords（关键词）：逐条归一。命中→标准词；未命中→保留原文；
+       - subject（形式题材，取代已废弃的 tags）/ keywords（关键词）：subject 单值归一，keywords 逐条归一。命中→标准词；未命中→保留原文；
     4. 只要有一个字段"没受控"，就把这份文档打上 needs_review=True——
        文档照常入库，但先进「待审核」队列，等你在审核页人工确认/修正后才正式放行。
        这个标记叠加在"置信度路由"之上：置信度低的本来也会进待审核，两者不冲突。
@@ -27,7 +27,7 @@
   为什么这样设计（诚实的存疑点）：
   - "未受控的词不删、只打标记"是为了不丢 AI 的有用发现，词表可以边用边补。
     但代价是：未受控词会一直堆在审核队列里，需要你定期去补词表或审核。
-  - udc_code 与 tags/keywords 待遇不同（一个清空、一个保留），是因为细分码是
+  - udc_code 与 subject/keywords 待遇不同（一个清空、一个保留），是因为细分码是
     结构化检索键，乱填比空更有害；题材/关键词是描述性标签，保留原文无害且可后期归并。
     这条分界线是我拍板的，未必最优——也许将来 udc 也改成"保留+待审核"会更一致。
   - 形状校验（_validate_vocab_shape）是后来补的：词表文件被人手改坏（比如把 themes
@@ -38,7 +38,7 @@
 
 职责：
   1. 加载 library/controlled_vocabulary.json（用户可手动编辑的词表）
-  2. 对 AI 自由文本字段（udc_code / tags / keywords）做受控校验
+  2. 对 AI 自由文本字段（udc_code / subject / keywords）做受控校验
      —— 命中标准词/同义词 → 归一为标准词；未收录 → 保留原文 + 记日志（绝不静默丢弃）
   3. 不碰 4 分面骨架（content_type / domain / temporal_nature / epistemic_status）
      —— 那四个由 config/normalize.py 的枚举守卫管，这里是它们的补充
@@ -52,7 +52,7 @@
 调用点（#37）：ingest_pipeline.build_payloads() 内、_prepare_metadata() 返回后、
   构建 points 之前调用 normalize_free_text_fields(metadata, doc_id)。
   build_payloads 是守望夹与 UI 上传两条摄入路线的唯一汇合点，故一处挂载同时覆盖两者。
-  （注：normalize_facet_values() 只接收 4 个分面字段，不含 udc_code/tags/keywords，
+  （注：normalize_facet_values() 只接收 4 个分面字段，不含 udc_code/subject/keywords，
    故词表校验不能挂在那；正确挂载点是 build_payloads。）
 """
 
@@ -219,7 +219,7 @@ def normalize_free_text_fields(metadata: dict, doc_id: str = "") -> dict:
 
     行为（对齐用户决策：最严档）：
       - udc_code：命中 → 标准码；未命中 → 清空 + 记日志（避免乱码进库）
-      - tags / keywords：逐条归一；命中 → 标准词；未命中 → 保留原文 + 记日志（不丢数据）
+      - subject / keywords：subject 单值归一、keywords 逐条归一；命中 → 标准词；未命中 → 保留原文 + 记日志（不丢数据）
       - 任一字段存在未受控值 → 标记 metadata["needs_review"] = True
         文档照常入库，但进入「待审核」队列，由用户在审核页人工确认/修正后才放行。
         该标记叠加在现有置信度路由之上（不覆盖已为 True 的状态）。
@@ -241,20 +241,16 @@ def normalize_free_text_fields(metadata: dict, doc_id: str = "") -> dict:
             metadata["udc_code"] = ""
             has_uncontrolled = True
 
-    # ── tags（题材）──
-    raw_tags = metadata.get("tags", []) or []
-    if isinstance(raw_tags, str):
-        raw_tags = [raw_tags]
-    norm_tags = []
-    for t in raw_tags:
-        nt = normalize_theme(t)
+    # ── subject（形式题材，取代已废弃的 tags；见 handoff-spec §2.3）──
+    raw_subject = metadata.get("subject")
+    if isinstance(raw_subject, str) and raw_subject.strip():
+        nt = normalize_theme(raw_subject)
         if nt:
-            norm_tags.append(nt)
+            metadata["subject"] = nt
         else:
-            logger.warning(f"[vocab] doc_id={doc_id} 题材标签未受控，保留原文 + 标记待审核: {t!r}")
-            norm_tags.append(str(t).strip())
+            logger.warning(f"[vocab] doc_id={doc_id} 形式题材未受控，保留原文 + 标记待审核: {raw_subject!r}")
+            metadata["subject"] = raw_subject.strip()
             has_uncontrolled = True
-    metadata["tags"] = norm_tags
 
     # ── keywords ──
     raw_kw = metadata.get("keywords", []) or []
@@ -306,7 +302,7 @@ def save_vocabulary(working: dict) -> tuple:
         version = "1.0"
         description = (
             "受控词表（controlled vocabulary）— 约束 AI 自由文本字段"
-            "（udc_code / tags / keywords），防止同一概念写法不一导致漏搜。"
+            "（udc_code / subject / keywords），防止同一概念写法不一导致漏搜。"
             "用户可手动增删词条后保存即可生效。未收录的词不会被静默丢弃，"
             "仅记录日志，待后续补充。"
         )

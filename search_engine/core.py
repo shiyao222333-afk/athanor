@@ -17,7 +17,7 @@ from sparse_encoder import encode_sparse_query
 
 
 # 有效过滤键（facet_filter 参数校验用）
-_VALID_FILTER_KEYS = {"content_type","domain","knowledge_type","tags","temporal_nature","epistemic_status","lifecycle","is_personal","trust_score_min"}
+_VALID_FILTER_KEYS = {"content_type","domain","knowledge_type","subject","temporal_nature","epistemic_status","lifecycle","is_personal","trust_score_min"}
 
 
 def _build_qdrant_filter(facet_filter: dict) -> tuple:
@@ -37,7 +37,7 @@ def _build_qdrant_filter(facet_filter: dict) -> tuple:
             "match": {"value": vals[0]} if len(vals) == 1 else {"any": vals}
         })
 
-    for key in ("content_type", "domain", "knowledge_type", "tags"):
+    for key in ("content_type", "domain", "knowledge_type", "subject"):
         if facet_filter.get(key):
             _add_match(key, facet_filter[key])
 
@@ -168,7 +168,7 @@ def search(
                 "is_personal": false,                  # 是否个人化
                 "trust_score_min": 3,                  # 最低可信度
                 "knowledge_type": ["formula"],          # 知识子类型
-                "tags": ["齿轮"],                     # 标签（任一匹配）
+                "subject": "齿轮",                     # 标签（任一匹配）
             }
 
     返回结构:
@@ -238,12 +238,12 @@ def search(
             "temporal_nature": payload.get("temporal_nature", "timeboxed"),
             "epistemic_status":payload.get("epistemic_status", "unverified"),
             "lifecycle":       payload.get("lifecycle", ""),
-            "project_source":  payload.get("project_source", ""),
+            "source_project":  payload.get("source_project", ""),
             "udc_code":        payload.get("udc_code", ""),
             "is_personal":     payload.get("is_personal", False),
             "trust_score":     payload.get("trust_score", 3),
             "knowledge_type":  payload.get("knowledge_type", ""),
-            "tags":            payload.get("tags", []),
+            "subject":         payload.get("subject", ""),
             "is_canonical":    payload.get("is_canonical", True),
             "relations":       payload.get("relations", []),
             "keywords":        payload.get("keywords", []),

@@ -138,7 +138,7 @@
 - **搜索词→分面自动推断** — LLM 解析搜索词自动生成分面过滤（如 "齿轮国标" → domain:["6"] + content_type:"standard"）
 - **个人内容分类深化** — content_type 扩展子类（medical_record / financial_doc / diary）+ 隐私权限机制
 - **认知精炼职责已移交 Albedo（原部分归 Citrinitas）** — 质量评估（真/假/可疑）/ 优点分析 / 内容净化（去广告·纠错·翻译）及 FPF 信任聚合（WLNK）均归 Albedo 核心功能，由上游精炼阶段完成；熔知 v1.5.0 录入预处理仅保留「抓取残留清洗 + 去除无关内容 + 网页 URL 直接摄入」等存储侧清洗，不再做认知层加工
-- **project_source 升级** — 从普通字段升级为分面（Payload Index）
+- ~~**project_source 升级**~~ — 已废弃：权威契约（handoff-spec §2.3）改为由 hook 写 `source_project` 取代，不再作为分面
 - **关键词→UDC 映射增强** — 当前仅 52 条，待积累后增强为规则引擎
 - **normalize_facet_values() 独立化** — 当前内联校验，未来独立为统一入口函数
 - **旧域数据迁移** — 执行 DOMAIN_MIGRATION_MAP，补充 temporal_nature/epistemic_status 默认值

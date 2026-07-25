@@ -143,7 +143,7 @@ def build_advanced_panel(annotated: dict, classification: dict, container):
         with ui.expansion("高级选项", icon="⚙️").classes("w-full") as exp:
             _render_group("知识属性", [
                 "lifecycle", "knowledge_type", "is_personal",
-                "trust_score", "project_source", "udc_code",
+                "trust_score", "source_project", "udc_code",
             ], exp)
             ui.separator()
             _render_group("来源信息", ["source", "language", "origin.source_url"], exp)

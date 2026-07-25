@@ -34,7 +34,7 @@ Citrinitas 分面分类 + 完整字段定义 — Faceted Classification Schema v
 
 象限四 — 智能默认值（Smart defaults，置信度 0.0）
   当前无法自动确定，填入占位值等待未来进化。
-  字段: project_source, target_platform, related_product, tags, relations,
+  字段: target_platform, related_product, relations,
         timeline.expiry, + 10 预留扩展槽位
 
 填充优先级: 文件自带 > AI 推断 > 智能默认值
@@ -50,7 +50,7 @@ v5.1 变更（2026-06-17）:
 v5.0 变更（2026-06-16）:
   - domain: 自定义9域 → UDC 9主类
   - 分面3: lifecycle → temporal_nature（lifecycle 降级为普通字段）
-  - 分面4: project_source → epistemic_status（project_source 降级为普通字段）
+  - 分面4: project_source → epistemic_status（project_source 已废弃，溯源改由 hook 写 source_project；tags 已废弃，形式题材由 subject 接管）
   - 移除: objectivity（被 content_type + epistemic_status 联合覆盖）
 """
 

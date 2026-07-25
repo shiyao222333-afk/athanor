@@ -6,8 +6,8 @@ Citrinitas 受控词表契约测试（#28/#39 根因治理，防回归）。
 
 覆盖项（对应 #28 设计）：
   L1  加载层：有效词表加载 / 文件缺失 → 空词表不崩 / 文件损坏 → 空词表不崩
-  L2  归一化：udc_code 精确命中；tags/keywords 同义词归并；未命中 → None
-  L3  自由文本校验：全受控不进待审核；任一未受控 → needs_review=True（udc 清空、tags/keywords 保留原文）
+  L2  归一化：udc_code 精确命中；subject/keywords 同义词归并；未命中 → None
+  L3  自由文本校验：全受控不进待审核；任一未受控 → needs_review=True（udc 清空、subject/keywords 保留原文）
   L4  懒加载兜底：调用方忘调 load 也不空表误判（#37 接入健壮性）
   L5  写回回环：save_vocabulary → 重新加载 → 校对一致；原子写不损坏原文件
 
@@ -150,27 +150,27 @@ def test_free_text_fields():
     vb.load_vocabulary(force=True)
 
     # 全受控 → 不进审核队列，值被同义词归并
-    m = {"udc_code": "621.81", "tags": ["齿轮设计"], "keywords": ["齿面硬度"], "needs_review": False}
+    m = {"udc_code": "621.81", "subject": "齿轮设计", "keywords": ["齿面硬度"], "needs_review": False}
     vb.normalize_free_text_fields(m, "doc1")
     check("L3 全受控不进审核", m.get("needs_review") is False)
     check("L3 全受控 udc 保留", m["udc_code"] == "621.81")
-    check("L3 全受控 tags 归并", m["tags"] == ["机械设计"])
+    check("L3 全受控 subject 归并", m["subject"] == "机械设计")
     check("L3 全受控 keywords 归并", m["keywords"] == ["齿面接触疲劳强度"])
 
-    # 有未受控 → 进审核队列；udc 清空、tags/keywords 保留原文
-    m2 = {"udc_code": "xyz", "tags": ["未知题材"], "keywords": ["未知词"], "needs_review": False}
+    # 有未受控 → 进审核队列；udc 清空、subject/keywords 保留原文
+    m2 = {"udc_code": "xyz", "subject": "未知题材", "keywords": ["未知词"], "needs_review": False}
     vb.normalize_free_text_fields(m2, "doc2")
     check("L3 未受控 udc 清空", m2["udc_code"] == "")
-    check("L3 未受控 tags 保留原文", m2["tags"] == ["未知题材"])
+    check("L3 未受控 subject 保留原文", m2["subject"] == "未知题材")
     check("L3 未受控→needs_review", m2.get("needs_review") is True)
 
     # 已为 True 不降级
-    m3 = {"udc_code": "621.81", "tags": ["机械设计"], "keywords": ["齿面接触疲劳强度"], "needs_review": True}
+    m3 = {"udc_code": "621.81", "subject": "机械设计", "keywords": ["齿面接触疲劳强度"], "needs_review": True}
     vb.normalize_free_text_fields(m3, "doc3")
     check("L3 已审核不降级", m3["needs_review"] is True)
 
     # 缺 needs_review 键不崩（setdefault 护栏）
-    m4 = {"udc_code": "621.81", "tags": ["机械设计"], "keywords": ["齿面接触疲劳强度"]}
+    m4 = {"udc_code": "621.81", "subject": "机械设计", "keywords": ["齿面接触疲劳强度"]}
     vb.normalize_free_text_fields(m4, "doc4")
     check("L3 无 needs_review 键不崩", m4.get("needs_review") is False)
 
@@ -239,20 +239,20 @@ def test_vocab_doctor_pure():
     vb.load_vocabulary(force=True)
 
     # 受控 payload → 无问题
-    good = {"doc_id": "d", "udc_code": "621.81", "tags": ["齿轮设计"], "keywords": ["齿面硬度"]}
+    good = {"doc_id": "d", "udc_code": "621.81", "subject": "齿轮设计", "keywords": ["齿面硬度"]}
     check("L6 受控 payload 无问题码", vd.classify_payload(good) == [])
 
     # 非受控 → 三个码都报
-    bad = {"doc_id": "d", "udc_code": "xyz", "tags": ["未知题材"], "keywords": ["未知词"]}
+    bad = {"doc_id": "d", "udc_code": "xyz", "subject": "未知题材", "keywords": ["未知词"]}
     probs = vd.classify_payload(bad)
     check("L6 非受控 udc 报码", "udc_uncontrolled" in probs)
-    check("L6 非受控 tag 报码", "tag_uncontrolled" in probs)
+    check("L6 非受控 subject 报码", "subject_uncontrolled" in probs)
     check("L6 非受控 keyword 报码", "keyword_uncontrolled" in probs)
 
-    # 归一写回子集正确（udc 清空、tags/keywords 保留原文）
+    # 归一写回子集正确（udc 清空、subject/keywords 保留原文）
     upd = vd.normalize_doc_payload(bad)
     check("L6 归一 udc 清空", upd["udc_code"] == "")
-    check("L6 归一 tags 保留原文", upd["tags"] == ["未知题材"])
+    check("L6 归一 subject 保留原文", upd["subject"] == "未知题材")
     check("L6 归一 keywords 保留原文", upd["keywords"] == ["未知词"])
     os.remove(p)
 

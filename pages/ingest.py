@@ -516,13 +516,11 @@ def page_ingest():
             ai_status.set_text("正在分析...")
             ai_btn.disable()
             try:
-                # 传入文件元数据 + 当前项目（让 Layer 0 填 project_source）
-                _proj = STATE.get("current_project", "通用")
+                # 传入文件元数据（classification 不再携带 project_source，溯源改由 hook 写 source_project）
                 result = await asyncio.to_thread(
                     classify_pipeline.classify_document,
                     ingest_content,
                     STATE.get("auto_metadata") if isinstance(STATE.get("auto_metadata"), dict) else None,
-                    _proj,
                 )
                 if result and result.get("ok"):
                     cls = result.get("classification", {})

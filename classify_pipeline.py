@@ -589,7 +589,7 @@ def _sync_domain_from_udc(merged: dict) -> None:
 
 # ── T6: classify_document() 主函数 ──
 
-def classify_document(text: str, file_metadata: dict = None, project_source: str = "通用") -> dict:
+def classify_document(text: str, file_metadata: dict = None) -> dict:
     """
     阶段二标签形成主函数 — 三层管道。
     
@@ -707,12 +707,10 @@ def classify_document(text: str, file_metadata: dict = None, project_source: str
     nr = merged.get("needs_review")
     classification["needs_review"] = nr.get("value", False) if isinstance(nr, dict) else False
 
-    # ── Layer 0: 系统自动填（language / project_source / source）──
+    # ── Layer 0: 系统自动填（language / source）──
     # 这些字段不参与 file > rule > llm 流程，由系统直接确定
     lang = detect_language(text)
     classification["language"] = lang
-
-    classification["project_source"] = project_source
 
     if file_metadata and file_metadata.get("source"):
         src = file_metadata["source"]
@@ -726,7 +724,6 @@ def classify_document(text: str, file_metadata: dict = None, project_source: str
 
     # 将 Layer 0 字段写入 merged（使 annoteted 也包含它们）
     merged["language"] = _make_field(lang, "system")
-    merged["project_source"] = _make_field(project_source, "system")
     merged["source"] = _make_field(src, "system")
 
     return {

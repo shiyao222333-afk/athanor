@@ -240,7 +240,7 @@ def search_by_doc_id(
                 "temporal_nature": payload.get("temporal_nature", ""),
                 "epistemic_status":payload.get("epistemic_status", ""),
                 "lifecycle":       payload.get("lifecycle", ""),
-                "project_source":  payload.get("project_source", ""),
+                "source_project":  payload.get("source_project", ""),
                 "udc_code":        payload.get("udc_code", ""),
                 "trust_score":     payload.get("trust_score", 3),
                 "is_canonical":    payload.get("is_canonical", True),

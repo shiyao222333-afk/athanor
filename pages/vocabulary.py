@@ -125,7 +125,7 @@ def page_vocab():
                 "不在表里的词会让文档进「待审核」队列。修改后点底部「保存词表」生效。*"
             )
             _section_code()
-            _section_syn("themes", "题材标签（tags）", "🏷️")
+            _section_syn("themes", "形式题材（subject）", "🏷️")
             _section_syn("keywords", "关键词（keywords）", "🔑")
             ui.button("💾 保存词表", on_click=_save).props("color=primary").classes("mt-4")
 

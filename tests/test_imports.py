@@ -65,7 +65,7 @@ def test_build_payloads_minimal():
         "content_type": "knowledge",
         "domain": ["test"],
         "udc_code": "621.81",
-        "tags": ["机械设计"],
+        "subject": "机械设计",
         "keywords": ["齿轮"],
     }
     try:
