@@ -25,8 +25,9 @@ watch_v2:
   state_file: library/file_state.jsonl
   write_complete_checks: 2
   write_check_interval: 0.5
-  max_file_size_mb: 50
-  processing_timeout: 600
+  max_file_size_mb: 2048
+  processing_timeout: 3600
+  progress_stall_timeout: 300
   queue_max_size: 100
   queue_put_timeout: 0.5
   retention:

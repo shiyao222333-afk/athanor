@@ -16,7 +16,7 @@ from utils.activity_log import log_activity
 FAILURE_TYPES = {
     # 格式/大小检查
     "format_unsupported": {"step": "format_check", "strategy": "dlq_delete"},
-    "file_too_large":     {"step": "size_check",    "strategy": "dlq_delete"},
+    "file_too_large":     {"step": "size_check",    "strategy": "dlq_keep"},   # #304 超限文件保留等人工处理，不再物理删除
     "temp_file":           {"step": "filter",        "strategy": "skip"},
 
     # 文件读取

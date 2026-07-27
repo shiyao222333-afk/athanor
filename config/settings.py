@@ -206,12 +206,16 @@ WATCH_V2_WRITE_CHECK_INTERVAL = _yaml_or_env(
     validator=lambda v: None if v > 0 else "must be > 0",
 )
 WATCH_V2_MAX_FILE_SIZE_MB = _yaml_or_env(
-    "watch_v2.max_file_size_mb", "KB_WATCH_V2_MAX_FILE_SIZE_MB", 50, cast=int,
+    "watch_v2.max_file_size_mb", "KB_WATCH_V2_MAX_FILE_SIZE_MB", 2048, cast=int,
     validator=lambda v: None if v >= 0 else "must be >= 0",
 )
+WATCH_V2_PROGRESS_STALL_TIMEOUT = _yaml_or_env(
+    "watch_v2.progress_stall_timeout", "KB_WATCH_V2_PROGRESS_STALL_TIMEOUT", 300, cast=int,
+    validator=lambda v: None if (v == 0 or v >= 30) else "must be 0 (禁用) 或 >= 30",
+)
 WATCH_V2_PROCESSING_TIMEOUT = _yaml_or_env(
-    "watch_v2.processing_timeout", "KB_WATCH_V2_PROCESSING_TIMEOUT", 600, cast=int,
-    validator=lambda v: None if v >= 10 else "must be >= 10",
+    "watch_v2.processing_timeout", "KB_WATCH_V2_PROCESSING_TIMEOUT", 3600, cast=int,
+    validator=lambda v: None if (v == 0 or v >= 30) else "must be 0 (禁用) 或 >= 30",
 )
 WATCH_V2_QUEUE_MAX_SIZE = _yaml_or_env(
     "watch_v2.queue_max_size", "KB_WATCH_V2_QUEUE_MAX_SIZE", 100, cast=int,
@@ -311,5 +315,6 @@ def _print_summary():
     print(f"  watch_v2.infra_retry       = {WATCH_V2_INFRA_RETRY_INTERVAL}s")
     print(f"  watch_v2.dlq_ttl_days      = {WATCH_V2_DLQ_TTL_DAYS}")
     print(f"  watch_v2.processing_timeout= {WATCH_V2_PROCESSING_TIMEOUT}s")
+    print(f"  watch_v2.progress_stall_timeout= {WATCH_V2_PROGRESS_STALL_TIMEOUT}s")
     print(f"  watch_v2.text_density_thr  = {WATCH_V2_TEXT_DENSITY_THRESHOLD}")
     print(f"  watch_v2.ocr_conf_thr      = {WATCH_V2_OCR_CONF_THRESHOLD}")

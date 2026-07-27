@@ -106,6 +106,10 @@ def stop_watcher():
     if _state._stop_event:
         _state._stop_event.set()
 
+    # #302 兜底：真杀所有仍存活的 Y2 处理子进程，避免其变孤儿继续霸占 Ollama/Qdrant；
+    # 同时让下方 worker 线程的 proc.join 立即返回，关停不会卡在等待子进程。
+    _state._kill_all_children()
+
     if _state._observer:
         _state._observer.stop()
         _state._observer.join(timeout=5)

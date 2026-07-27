@@ -7,6 +7,7 @@ watcher 包最底层模块。无 watcher 内部依赖（仅依赖 utils/config �
 
 import os
 import json
+import time
 import threading
 from datetime import datetime, timezone
 
@@ -47,6 +48,50 @@ _watch_stats: dict = {
 }
 _queued_files: set = set()
 _in_flight: set = set()
+
+# ── 活跃 Y2 子进程登记表（#302 防孤儿）──────────────────────────────
+# spawn 出来的处理子进程登记于此；stop_watcher / 主进程关机时遍历真杀，
+# 避免子进程变孤儿继续霸占 Ollama / Qdrant，重启后与新 watcher 双开抢同一文件。
+_active_children: set = set()       # 存 multiprocessing.Process 对象
+_children_lock = threading.Lock()
+
+
+def _register_child(proc):
+    """登记一个正在运行的 Y2 处理子进程（由父进程的 _process_file_with_timeout 调用）。"""
+    with _children_lock:
+        _active_children.add(proc)
+
+
+def _unregister_child(proc):
+    """子进程结束（正常退出或被强杀）后从登记表移除。"""
+    with _children_lock:
+        _active_children.discard(proc)
+
+
+def _kill_all_children():
+    """关停兜底：真杀所有仍存活的 Y2 子进程，避免遗留孤儿。
+
+    先 terminate(SIGTERM) 给子进程一次自行清理的机会，超时未退则 kill(SIGKILL) 强杀。
+    Windows 上 terminate/kill 均为 TerminateProcess 级强杀，足以断开其 Ollama/Qdrant 连接。
+    """
+    with _children_lock:
+        procs = list(_active_children)
+    for proc in procs:
+        try:
+            if proc.is_alive():
+                proc.terminate()
+        except Exception:
+            pass
+    if procs:
+        time.sleep(0.3)
+    for proc in procs:
+        try:
+            if proc.is_alive():
+                proc.kill()
+        except Exception:
+            pass
+    with _children_lock:
+        _active_children.clear()
 
 
 # ═══════════════════════════════════════════

@@ -107,12 +107,21 @@ def _step_read_content(state: dict) -> dict:
 
 
 def _step_dedup(state: dict) -> dict:
-    """Step 3: 检查内容哈希，防止重复入库"""
+    """Step 3: 检查内容哈希，防止重复入库。
+
+    安全加固（#303 防静默丢数据）：
+    仅当「已存在记录的 doc_id 与本次文件不同」时才判定为重复跳过。
+    若命中的是「同一 doc_id」（同文件重摄入 / 上次被超时强杀留下的半成品点），
+    则放行不跳过——由 _step_write_qdrant 的确定性 point_id 覆盖写自愈，
+    避免大文件半成品被永久判重复→标记 done→源文件被删→永久丢数据。
+    """
     if not state.get("skip_duplicates", True):
         return {"ok": True, "skipped": True}
 
     content_hash = _text_hash(state["text"])
     state["content_hash"] = content_hash
+
+    self_doc_id = state.get("doc_id") or ""
 
     try:
         resp = requests.post(
@@ -125,14 +134,22 @@ def _step_dedup(state: dict) -> dict:
             },
             timeout=10
         )
-        if resp.status_code == 200 and resp.json().get("result", {}).get("points"):
-            dup_source = resp.json()["result"]["points"][0]["payload"].get("source", "未知")
-            return {
-                "ok": False,
-                "error": "内容重复，已跳过",
-                "duplicate_of": dup_source,
-                "content_hash": content_hash,
-            }
+        if resp.status_code == 200:
+            points = resp.json().get("result", {}).get("points") or []
+            if points:
+                matched_doc_id = points[0].get("payload", {}).get("doc_id", "")
+                # 同 doc_id（同文件重摄入 / 半成品自愈）→ 放行，不跳过
+                if self_doc_id and matched_doc_id == self_doc_id:
+                    return {"ok": True, "skipped": False,
+                            "reason": "同文件重摄入，放行覆盖写自愈"}
+                # 不同 doc_id（不同文件内容撞车）→ 真重复，跳过
+                dup_source = points[0].get("payload", {}).get("source", "未知")
+                return {
+                    "ok": False,
+                    "error": "内容重复，已跳过",
+                    "duplicate_of": dup_source,
+                    "content_hash": content_hash,
+                }
     except Exception as e:
         # 去重查询失败：不阻断主流程，但必须告警，否则重复会悄悄累积无从排查
         logger.warning(f"[ingest] 去重查询失败（跳过去重，继续写入）: {e}")
@@ -178,7 +195,7 @@ def _step_embed(state: dict) -> dict:
     vectors = []
     for attempt in range(max_retries):
         try:
-            vectors = _embed(chunks, model=model)
+            vectors = _embed(chunks, model=model, progress_callback=state.get("progress_callback"))
             break  # 成功，退出重试循环
         except Exception as e:
             if attempt < max_retries - 1:
@@ -367,6 +384,7 @@ def ingest(
     field_sources: dict = None,
     overall_confidence: float = None,
     force_reingest: bool = False,
+    progress_callback: callable = None,
 ) -> dict:
     """
     摄入文档到知识库（可编排管线）。
@@ -416,6 +434,7 @@ def ingest(
         "doc_id": "",
         "ingested_at": "",
         "force_reingest": force_reingest,
+        "progress_callback": progress_callback,
         "points": [],
     }
 

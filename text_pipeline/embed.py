@@ -13,7 +13,7 @@ from qconst import OLLAMA_URL, EMBED_MODEL
 logger = logging.getLogger(__name__)
 
 
-def _embed(texts: list[str], model: str = EMBED_MODEL) -> list[list[float]]:
+def _embed(texts: list[str], model: str = EMBED_MODEL, progress_callback=None) -> list[list[float]]:
     """调用 Ollama 批量获取嵌入向量（优先批量，失败回退逐条）。"""
     # 允许通过环境变量 KB_EMBED_MODEL 即时切换模型（配置页保存后无需重启）
     model = model or os.environ.get("KB_EMBED_MODEL", EMBED_MODEL)
@@ -55,4 +55,6 @@ def _embed(texts: list[str], model: str = EMBED_MODEL) -> list[list[float]]:
                 continue
             logger.warning(f"[Embed] 块 #{i} 嵌入失败（{len(text)} 字符），用零向量占位（{_dim} 维）")
             vectors.append([0.0] * _dim)
+        if progress_callback:
+            progress_callback(i, len(texts))
     return vectors
