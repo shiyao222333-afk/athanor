@@ -8,6 +8,7 @@ Citrinitas Watch Folder — 文件处理管线。
 import os
 import json
 import time
+import threading
 import shutil
 import multiprocessing
 from queue import Full
@@ -111,6 +112,33 @@ def _embed_progress_cb(filename: str):
     def cb(idx: int, total: int):
         _write_progress(filename, stage="embed", page=idx + 1, total_pages=total)
     return cb
+
+
+def _ticker_interval() -> float:
+    """心跳 ticker 间隔：严格小于停滞阈值，确保任何单步同步长调用都不会被判停滞。
+
+    取停滞阈值的 1/3，并夹在 [1s, 30s]：stall=300 → 30s（10 倍余量）；
+    stall=30(最小允许值) → 10s（3 倍余量）。下限 1s 仅为避免病态高频写盘，
+    上限 30s 避免大文件场景写盘过稀。stall=0(禁用) 时回退 15s。
+    关键：interval 恒 < stall（stall>0 时），否则 ticker 自身会触发误杀。
+    """
+    stall = WATCH_V2_PROGRESS_STALL_TIMEOUT
+    if stall and stall > 0:
+        return max(1.0, min(stall / 3.0, 30.0))
+    return 15.0
+
+
+def _heartbeat_ticker(filename: str, stage_ref: dict, stop: threading.Event):
+    """后台心跳 ticker 线程（#313）。
+
+    处理期间每 ~间隔 写一次「当前 stage」心跳，确保 classify(单 LLM 调用) /
+    OCR 回退(逐页) 等「步骤内心跳缺失」的长同步调用不会被看门狗误杀。
+    I/O 阻塞调用会释放 GIL，故主线程卡在慢网络调用时本线程仍能持续写心跳。
+    daemon 线程：随子进程退出自动结束，无需显式回收；stop 仅用于正常结束时尽快停。
+    """
+    interval = _ticker_interval()
+    while not stop.wait(interval):
+        _write_progress(filename, stage=stage_ref.get("value", "processing"))
 
 
 # ═══════════════════════════════════════════
@@ -511,6 +539,17 @@ def _process_file(filepath: str):
     # 立即上报初始心跳，避免子进程尚未落心跳时被看门狗误判停滞
     _write_progress(filename, stage="init")
 
+    # 后台心跳 ticker（#313）：处理期间每 ~间隔 写一次「当前 stage」心跳，
+    # 确保 classify(单 LLM 调用) / OCR 回退(逐页) 等「步骤内心跳缺失」的长同步调用
+    # 不会被看门狗误杀。daemon 线程：随子进程退出自动结束，无需显式回收。
+    _stage = {"value": "init"}
+    _hb_stop = threading.Event()
+    _hb_thread = threading.Thread(
+        target=_heartbeat_ticker, args=(filename, _stage, _hb_stop),
+        name=f"hb-{filename[:20]}", daemon=True,
+    )
+    _hb_thread.start()
+
     # ── Albedo 中转② sidecar（{name}_refined.meta.json）：机读元数据，非待摄入正文，直接跳过 ──
     if filename.endswith(".meta.json"):
         return
@@ -541,6 +580,7 @@ def _process_file(filepath: str):
             "state": "processing",
             "step": "extract",
         })
+        _stage["value"] = "extract"
         _write_progress(filename, stage="extract")  # 心跳：提取阶段开始
 
         ok, should_retry, retry_count = _do_prechecks(filepath, ext, filename, retry_count)
@@ -619,6 +659,7 @@ def _process_file(filepath: str):
             "state": "processing",
             "step": "classify",
         })
+        _stage["value"] = "classify"
         _write_progress(filename, stage="classify")  # 心跳：分类阶段开始
         metadata, field_sources, overall_conf, needs_review, should_retry, retry_count = _do_classify(
             full_text, filepath, filename, retry_count, _fm_meta)
@@ -634,6 +675,7 @@ def _process_file(filepath: str):
             "state": "processing",
             "step": "ingest",
         })
+        _stage["value"] = "ingest"
         _write_progress(filename, stage="ingest")  # 心跳：摄入阶段开始
         ingest_result, should_retry, retry_count = _do_ingest(
             full_text, metadata, field_sources, overall_conf,
