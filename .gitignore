@@ -75,3 +75,4 @@ ARTIFACTS/
 qdrant.zip
 *.lnk
 
+_staging/

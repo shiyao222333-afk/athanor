@@ -129,8 +129,90 @@ def _serve_report(filename: str):
     from fastapi.responses import JSONResponse
     return JSONResponse({"error": "File not found"}, status_code=404)
 
+def _enforce_single_instance() -> None:
+    """单实例锁：防两个熔知同时跑抢收件箱/Ollama（轮2 被看门狗误杀的根因）。
+
+    文件系统级原子创建(O_CREAT|O_EXCL)抢锁文件，谁先建谁赢；
+    另一个实例拿到 EEXIST → 读锁里 PID，还活着就退出，已死(崩溃残留)就接管。
+    仅主进程(__main__)执行；spawn 子进程(__mp_main__)跳过，避免误杀自己的 worker。
+    """
+    import atexit, subprocess
+    lock_path = os.path.join(PROJECT_DIR, "local_data", ".citrinitas.lock")
+    os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+
+    def _pid_alive(pid: int) -> bool:
+        # 优先用 Windows API 直接查进程句柄，绕开 tasklist 的 GBK 编码坑：
+        # 中文 Windows 下 tasklist 输出 GBK，而 subprocess(text=True) 按 UTF-8 解码会
+        # 抛 UnicodeDecodeError → 被 except 吞掉 → 误判"已死" → 错误接管锁 → 双实例放行。
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+                if handle == 0:
+                    return False
+                try:
+                    ec = ctypes.c_ulong()
+                    # STILL_ACTIVE = 259：仅当进程仍在运行(退出码为 259)才算活着；
+                    # 否则进程已终止但 PID 尚未被 OS 回收(强杀后的竞态窗口)→ 视为死亡，允许新实例接管。
+                    if kernel32.GetExitCodeProcess(handle, ctypes.byref(ec)):
+                        return ec.value == 259
+                    return False
+                finally:
+                    kernel32.CloseHandle(handle)
+            except Exception:
+                pass
+        # 兜底（非 Windows / ctypes 异常）：读原始字节再 errors=ignore 解码，
+        # PID 是 ASCII 数字，任何编码下都能幸存匹配。
+        try:
+            out = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}"],
+                capture_output=True, timeout=10,
+            ).stdout
+            if isinstance(out, bytes):
+                out = out.decode("utf-8", errors="ignore")
+            return str(pid) in out
+        except Exception:
+            return False
+
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except OSError as e:
+        if getattr(e, "errno", None) != 17:  # 17 = EEXIST
+            raise
+        try:
+            with open(lock_path, "r", encoding="utf-8") as _lf:
+                old_pid = int(_lf.read().strip())
+        except (ValueError, OSError):
+            old_pid = None
+        if old_pid is not None and _pid_alive(old_pid):
+            logger.critical(
+                "已有另一个 Citrinitas 实例在运行（PID %s），退出避免双实例抢资源。", old_pid
+            )
+            sys.exit(1)
+        # 残留死锁（旧进程已死）→ 接管
+        try:
+            os.remove(lock_path)
+        except OSError:
+            pass
+        return _enforce_single_instance()
+    with os.fdopen(fd, "w") as _lf:
+        _lf.write(str(os.getpid()))
+
+    def _release_lock() -> None:
+        try:
+            if os.path.exists(lock_path):
+                os.remove(lock_path)
+        except OSError:
+            pass
+    atexit.register(_release_lock)
+
+
 # ── 主入口 ───────────────────────────────
 if __name__ in {"__main__", "__mp_main__"}:
+    if __name__ == "__main__":
+        _enforce_single_instance()
     print(f"[启动] 检查 Qdrant: {QDRANT_URL}/collections")
     _qdrant_ok = False
     for _attempt in range(3):

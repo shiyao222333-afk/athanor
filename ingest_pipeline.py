@@ -392,6 +392,16 @@ def build_payloads(
     # 调试开关：开启后强制所有摄入文件进待审核队列（build_payloads 是两条摄入路线唯一汇合点，一处接入全覆盖）
     if is_force_review_all():
         metadata["needs_review"] = True
+    # 观察1 修复（needs_review 泄漏）：上游精炼稿 refined_status="ok" 即代表已审核通过，
+    # 熔知词表校验 / 调试开关不得再翻转为 needs_review=True，避免与「已精炼 = 已审核」矛盾。
+    # 仅当上游精炼稿自身就要求复核（base_meta.needs_review=True）时才保留待审核。
+    if metadata.get("refined_status") == "ok" and not base_meta.get("needs_review"):
+        if metadata.get("needs_review"):
+            logger.info(
+                f"[review] doc_id={doc_id} refined_status=ok → 清除词表/开关误标的 needs_review"
+                f"（与已精炼状态保持一致）"
+            )
+        metadata["needs_review"] = False
     metadata["ingested_at"] = ingested_at
     metadata["source"] = source
 

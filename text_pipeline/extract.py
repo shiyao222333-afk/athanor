@@ -22,48 +22,14 @@ logger = logging.getLogger(__name__)
 
 def detect_encoding(file_path: str, sample_size: int = 10000) -> str:
     """
-    检测文件编码。优先 chardet，失败后用 UTF-8 → GBK → latin-1 兜底链。
-    sample_size: 用于检测的字节数（默认 10000，约 10KB）
+    检测文件编码（委托给 utils.file_handler.encoding.detect_encoding）。
+
+    保留此包装仅为兼容旧调用方导入 text_pipeline.detect_encoding；
+    实际逻辑统一收敛到 utils/file_handler/encoding.py 的权威实现（UTF-8 优先），
+    避免两份副本出现「某条路径漏修」的散装 bug。
     """
-    with open(file_path, "rb") as f:
-        raw = f.read(sample_size)
-    if not raw:
-        return "utf-8"  # 空文件，默认 UTF-8
-
-    # 先试 charset_normalizer（如果已安装）
-    try:
-        from charset_normalizer import detect as chardet_detect
-        result = chardet_detect(raw)
-        enc = (result.get("encoding") or "").strip().lower()
-        conf = result.get("confidence", 0)
-        if enc and conf >= 0.6:
-            enc_map = {
-                "utf-8": "utf-8",
-                "ascii": "utf-8",
-                "gb2312": "gbk",
-                "gbk": "gbk",
-                "gb18030": "gb18030",
-                "big5": "big5",
-                "iso-8859-1": "latin-1",
-                "windows-1252": "cp1252",
-            }
-            return enc_map.get(enc, enc)
-    except ImportError:
-        pass  # chardet 未安装，走兜底链
-
-    # 兜底链：UTF-8 → GBK → latin-1
-    try:
-        raw.decode("utf-8")
-        return "utf-8"
-    except UnicodeDecodeError:
-        pass
-    try:
-        raw.decode("gbk")
-        return "gbk"
-    except UnicodeDecodeError:
-        pass
-    # 最后兜底：latin-1 永不失败（但可能乱码）
-    return "latin-1"
+    from utils.file_handler.encoding import detect_encoding as _canonical_detect_encoding
+    return _canonical_detect_encoding(file_path)
 
 
 # ═══════════════════════════════════════════
