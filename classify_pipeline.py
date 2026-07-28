@@ -78,7 +78,7 @@ SMART_DEFAULTS = {
     "domain":           [],
     "temporal_nature":  "timeboxed",
     "epistemic_status": "unverified",
-    "lifecycle":        "published",
+    "lifecycle":        "",
     "trust_score":      3,
     "keywords":         [],
     "title":            "",
@@ -271,8 +271,7 @@ def call_llm_for_missing(text: str, missing_fields: list) -> dict:
         )
     if "is_personal" in missing_fields:
         field_descriptions.append('### is_personal — true=个人经验/笔记，false=客观内容')
-    if "lifecycle" in missing_fields:
-        field_descriptions.append('### lifecycle — published/draft/review 等')
+    # lifecycle 已改为第6类（使用期手动填），不再由 LLM 推断
     
     # 构建示例 JSON — 只包含 missing_fields
     example_fields = {}
@@ -646,7 +645,7 @@ def classify_document(text: str, file_metadata: dict = None) -> dict:
     # knowledge_type / is_personal 已改为确定性规则推导（见 _derive_*），不再交给 LLM 兜底，杜绝漂移
     # udc_code 由 LLM 从受控词表选细分码（#60 修正 #37）；入库时 normalize_udc 校验，非词表清空+送审
     optional_for_llm = ["keywords", "title", "author", "auto_summary", "trust_score",
-                        "lifecycle", "udc_code"]
+                        "udc_code"]
     missing_optional = [f for f in optional_for_llm if merged.get(f) is None]
     
     all_missing = missing_facets + missing_optional
@@ -674,12 +673,7 @@ def classify_document(text: str, file_metadata: dict = None) -> dict:
     # ── 验证并规范化所有字段值 ──
     _validate_and_normalize_merged(merged)
     
-    # ── 闪念联动：content_type=idea → lifecycle=idea（覆盖默认的 published）──
-    _ct = merged.get("content_type")
-    if _ct and isinstance(_ct, dict) and _ct.get("value") == "idea":
-        _lc = merged.get("lifecycle")
-        if _lc and isinstance(_lc, dict):
-            _lc["value"] = "idea"
+    # ── lifecycle 已改为第6类（使用期手动填）：不再随 content_type=idea 自动联动 ──
     
     # ── Layer 3: 程序计算置信度 ──
     overall_conf = calculate_confidence(merged)

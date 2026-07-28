@@ -164,7 +164,7 @@ def search(
                 "domain": ["0", "6"],                    # 主题域-UDC（任一匹配）
                 "temporal_nature": "evergreen",          # 时效属性（单个值）
                 "epistemic_status": "corroborated",      # 认知验证状态（单个值）
-                "lifecycle": "published",               # 生命周期（单个值，普通字段）
+                "lifecycle": "",                          # 生命周期（第6类，默认空，入库后手动填）
                 "is_personal": false,                  # 是否个人化
                 "trust_score_min": 3,                  # 最低可信度
                 "knowledge_type": ["formula"],          # 知识子类型

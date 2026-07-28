@@ -228,7 +228,7 @@ LLM 自由输出任意精度的 UDC 类号，如 `"621"` / `"621.39"` / `"621:00
 
   "content_type": "standard", "domain": ["0", "6"],
   "temporal_nature": "evergreen", "epistemic_status": "corroborated",
-  "lifecycle": "published", "source_project": "albedo-refined", "udc_code": "621",
+  "lifecycle": "", "source_project": "albedo-refined", "udc_code": "621",
 
   "knowledge_type": "standard", "is_personal": false,
   "trust_score": 5, "tags": ["齿轮", "模数"],
@@ -335,7 +335,7 @@ LLM 分析文本语义推断的字段。**后备来源**：文件无 `title`/`au
 | `trust_score` | 评估来源权威度 0-5（0=未评级） |
 | `knowledge_type` | 仅 content_type=knowledge 时推断子类型 |
 | `is_personal` | 判断是否个人经验 |
-| `lifecycle` | 推断工作流阶段（默认 `published`） |
+| `lifecycle` | 第6类（使用期手动填）；入库默认空，不推断 |
 
 ### 象限三：程序自动生成（System-generated）— 置信度 1.0
 

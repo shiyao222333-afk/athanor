@@ -116,7 +116,7 @@ def _prepare_metadata(base_meta: dict, text: str, source: str, file_path: str) -
         "temporal_nature": facet_norm["temporal_nature"],
         "epistemic_status": facet_norm["epistemic_status"],
         # 生命周期（#41：经枚举守卫归一，避免 AI 写出"草稿中"等花样）
-        "lifecycle":      normalize_lifecycle(base_meta.get("lifecycle", "published")),
+        "lifecycle":      normalize_lifecycle(base_meta.get("lifecycle", "")),
         "source_project": base_meta.get("source_project"),
         "udc_code":        base_meta.get("udc_code", ""),
         # 知识管理

@@ -440,7 +440,7 @@ def normalize_facet_values(metadata: dict) -> dict:
     return metadata
 
 
-def normalize_lifecycle(value, default: str = "published") -> str:
+def normalize_lifecycle(value, default: str = "") -> str:
     """
     归一化 lifecycle（生命周期）字段（#41 补丁：枚举守卫原先漏掉了它）。
     lifecycle = 文档处于哪个阶段：想法/草稿/进行中/审核中/已发布/已归档。
@@ -449,7 +449,7 @@ def normalize_lifecycle(value, default: str = "published") -> str:
         1. 已是标准 key（idea/draft/in_progress/review/published/archived）→ 原样返回
         2. 查 FUZZY_FACET_MAPPING["lifecycle"]（中文/英文变体 → 标准 key）
         3. 子串兜底：标准 key 的中文标签（如 "已发布" in "已发布的状态"）
-        4. 都不中 → fallback 默认值（published）
+        4. 都不中 → fallback 默认空字符串（交由人工在第6类手动管理）
 
     返回标准 key，绝不抛异常、绝不写入非法值。
     """
