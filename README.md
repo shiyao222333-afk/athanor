@@ -98,7 +98,7 @@ flowchart TD
     B -->|TXT/MD/DOCX/PPTX| D[📄 直接读取文本]
     B -->|图片/扫描PDF| E[🔍 PaddleOCR 识别]
 
-    C --> F{编码检测<br>charset_normalizer}
+    C --> F{编码检测<br>UTF-8优先+确定链}
     D --> F
     E --> G[🤖 LLM OCR 纠错]
     G --> F
