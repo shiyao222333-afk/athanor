@@ -57,6 +57,38 @@ from utils.llm_helpers import extract_json_block as _extract_json_block
 logger = logging.getLogger(__name__)
 
 
+def _platform_from_url(url) -> Optional[str]:
+    """从来源链接推断发布平台（target_platform 兜底用）。
+
+    当精炼稿 front-matter 未显式给 target_platform 时（例如非 front-matter 分块、
+    或上游漏传），用来源链接的域名兜底识别，避免全部落成无意义的 "none"。
+    返回平台键（与 config/classifications.py 的 target_platform 词表一致），
+    识别不出则返回 None（上层维持 "none"）。
+    """
+    if not url or not isinstance(url, str):
+        return None
+    try:
+        from urllib.parse import urlparse
+        netloc = urlparse(url).netloc.lower()
+    except Exception:
+        return None
+    if "bilibili" in netloc:
+        return "bilibili"
+    if "xiaohongshu" in netloc or "xhslink" in netloc:
+        return "xiaohongshu"
+    if "weixin.qq.com" in netloc or "mp.weixin" in netloc:
+        return "wechat"
+    if "youtube" in netloc or "youtu.be" in netloc:
+        return "youtube"
+    if "zhihu" in netloc:
+        return "zhihu"
+    if "douyin" in netloc or "tiktok" in netloc:
+        return "douyin"
+    if "weibo" in netloc:
+        return "weibo"
+    return None
+
+
 def _derive_doc_id(file_path: str = None, text: str = None) -> str:
     """确定性文档编号：同一源 → 同一 doc_id，支撑重录入去重与覆盖更新。
 
@@ -143,7 +175,9 @@ def _prepare_metadata(base_meta: dict, text: str, source: str, file_path: str) -
         "ingest_method":  ingest_method,
         "source_path":    file_path or "",
         # 内容创作
-        "target_platform": base_meta.get("target_platform", "none"),
+        # 平台兜底：精炼稿 front-matter 给了就用（炼真已识别），否则从来源链接识别，
+        # 避免非 front-matter 分块全部落 "none"（平台识别退化修复）。
+        "target_platform": base_meta.get("target_platform") or _platform_from_url(source_url) or "none",
         "related_product": base_meta.get("related_product") or "无",
         # 系统
         "language":       base_meta.get("language") or _detect_language(text),
