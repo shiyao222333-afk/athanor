@@ -29,6 +29,7 @@ from utils.activity_log import log_activity
 
 _observer = None              # watchdog.observers.Observer | None
 _worker_thread = None         # threading.Thread | None
+_heartbeat_thread = None      # threading.Thread | None  (独立心跳线程, 缺陷 B 根因修复)
 _queue = None                 # queue.Queue | None
 _stop_event = None            # threading.Event | None
 _heartbeat_time: float = 0.0

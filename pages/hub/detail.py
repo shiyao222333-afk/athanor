@@ -99,10 +99,9 @@ def page_doc_detail(doc_id: str):
                     chunk_text = c.get("text", "")
                     chunk_idx = c.get("chunk_index", 0)
                     chunk_title = c.get("title", "") or f"分块 {chunk_idx}"
-                    with ui.expansion(f"#{chunk_idx} {chunk_title[:60]}", value=chunk_idx == 0).classes("w-full"):
-                        ui.markdown(f"```\n{chunk_text[:2000]}\n```")
-                        if len(chunk_text) > 2000:
-                            ui.label(f"... 共 {len(chunk_text)} 字符，已截断").classes("text-xs text-gray-500")
+                    # 默认全部展开，且显示完整内容（不再截断、不再需手动点开）
+                    with ui.expansion(f"#{chunk_idx} {chunk_title[:60]}", value=True).classes("w-full"):
+                        ui.markdown(f"```\n{chunk_text}\n```")
 
         # ════════════════════
         # 操作区

@@ -41,6 +41,8 @@ from watcher.utils import (
 from watcher.failures import _handle_failure, _classify_failure
 from watcher.processor import _process_file_with_timeout
 
+import watcher.state as _state  # 唯一真相源：心跳写 watcher.state._heartbeat_time（缺陷 B 根因修复，避免写入局部副本）
+
 
 # ═══════════════════════════════════════════
 # Watchdog 事件处理器
@@ -101,14 +103,35 @@ class WatchHandler(FileSystemEventHandler):
             )
 
 
+# ═════════════════════════════════════════
+# 独立心跳线程（缺陷 B 根因修复）
+# ═══════════════════════════════════════════
+
+def _heartbeat_loop(stop_event: threading.Event):
+    """独立心跳线程：与「干活的 worker 线程」解耦，写 watcher.state._heartbeat_time（唯一真相源）。
+
+    原实现在 _processing_loop 里 `global _heartbeat_time; _heartbeat_time = time.time()`，
+    但 listener 模块是从 watcher.state 导入的局部副本，函数内赋值只改了 listener 的局部名字，
+    watcher.state._heartbeat_time 永远是 0.0 → is_watcher_alive() 永远 False →
+    总管每 ~60s 把熔知强杀重启（"看门狗静默死亡"假象；pythonw 还吞掉了被强杀的痕迹）。
+
+    根因修复：心跳统一由本线程写 watcher.state._heartbeat_time，且每 ~5s 跳一次（与文件处理时长无关）。
+    worker 线程存活时才跳；worker 真死则心跳停，仍能被探活发现，不掩盖真实故障。
+    """
+    while not stop_event.is_set():
+        worker = _state._worker_thread
+        if worker is None or worker.is_alive():
+            with _state._heartbeat_lock:
+                _state._heartbeat_time = time.time()
+        stop_event.wait(5.0)
+
+
 # ═══════════════════════════════════════════
 # 后台处理循环
 # ═══════════════════════════════════════════
 
 def _processing_loop(queue: Queue, stop_event: threading.Event):
     """后台处理循环：从队列取文件，逐个处理。"""
-    global _heartbeat_time
-
     log_activity(action="watch_started", detail="守望文件夹 处理循环启动")
 
     _scan_existing_files(queue)
@@ -119,9 +142,6 @@ def _processing_loop(queue: Queue, stop_event: threading.Event):
 
     loop_count = 0
     while not stop_event.is_set():
-        with _heartbeat_lock:
-            _heartbeat_time = time.time()
-
         try:
             filepath = queue.get(timeout=2.0)
             _queued_files.discard(filepath)
@@ -199,6 +219,14 @@ def _processing_loop(queue: Queue, stop_event: threading.Event):
                 continue
 
             _process_file_with_timeout(filepath)
+        except Exception as e:
+            # 看门狗自愈（缺陷 B 关联加固）：单文件/单轮未捕获异常不再杀死 watcher 线程。
+            # pythonw 下未捕获异常的 traceback 进 stderr 黑洞，曾表现为"静默死亡、被总管每 60s 强杀"。
+            log_activity(
+                action="watch_loop_unexpected_error",
+                detail=f"处理循环未捕获异常（已自愈继续，不重启服务）: {e}",
+                source=os.path.basename(filepath) if isinstance(filepath, str) else None,
+            )
         finally:
             _in_flight.discard(filepath)
 

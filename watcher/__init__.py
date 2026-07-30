@@ -36,7 +36,7 @@ from utils.activity_log import log_activity
 
 import watcher.state as _state
 from watcher.utils import INBOX_DIR, STATE_FILE, _ensure_dir
-from watcher.listener import WatchHandler, _processing_loop
+from watcher.listener import WatchHandler, _processing_loop, _heartbeat_loop
 from watcher.migration import _migrate_from_v1
 
 
@@ -92,6 +92,16 @@ def start_watcher() -> threading.Thread | None:
     )
     _state._worker_thread.start()
 
+    # 缺陷 B 根因修复：独立心跳线程，写 watcher.state._heartbeat_time（唯一真相源），
+    # 与 worker 解耦，处理长文件时心跳照常跳，不再被误判死亡。
+    _state._heartbeat_thread = threading.Thread(
+        target=_heartbeat_loop,
+        args=(_state._stop_event,),
+        daemon=True,
+        name="citrinitas-watcher-hb",
+    )
+    _state._heartbeat_thread.start()
+
     with _state._stats_lock: _state._watch_stats["running"] = True
     _state._write_lock_file()
 
@@ -121,6 +131,10 @@ def stop_watcher():
                 action="watch_stop_timeout",
                 detail=f"处理线程在 {WATCH_V2_PROCESS_TIMEOUT}s 内未退出，强制退出",
             )
+
+    if _state._heartbeat_thread and _state._heartbeat_thread.is_alive():
+        _state._heartbeat_thread.join(timeout=5)
+    _state._heartbeat_thread = None
 
     with _state._stats_lock: _state._watch_stats["running"] = False
     _state._remove_lock_file()

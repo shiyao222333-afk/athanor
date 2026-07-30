@@ -63,7 +63,6 @@ def startup():
     """启动回调：只做轻量操作，不阻塞事件循环。"""
     logger.info("startup 回调开始（事件循环线程）")
     set_main_loop()
-    threading.Thread(target=_auto_shutdown, daemon=True).start()
     # 启动守望文件夹 v2
     try:
         watcher.start_watcher()
@@ -81,29 +80,6 @@ def shutdown():
         watcher.stop_watcher()
     except Exception as e:
         logger.error(f"守望文件夹 v2 停止异常: {e}")
-
-def _auto_shutdown():
-    CHECK = 3
-    IDLE_MAX = 5  # 连续5次失败才退出（避免偶发超时误判）
-    time.sleep(15)  # 启动后等15秒再开始检测（给 NiceGUI 足够的启动时间）
-    idle = 0
-    while True:
-        time.sleep(CHECK)
-        try:
-            # 用 127.0.0.1 而非 localhost（Windows 下 localhost 可能走 IPv6 ::1，导致连接失败）
-            _r.get("http://127.0.0.1:8080", timeout=2)
-            idle = 0
-        except Exception:
-            idle += 1
-            if idle >= IDLE_MAX:
-                logger.info("浏览器已关闭，自动退出。")
-                # 先优雅停止守望文件夹，释放锁和资源
-                try:
-                    watcher.stop_watcher()
-                except Exception as e:
-                    logger.warning(f"守望停止异常: {e}")
-                os._exit(0)
-
 
 @app.get("/health")
 def _health_check():
@@ -269,6 +245,10 @@ if __name__ in {"__main__", "__mp_main__"}:
     logger.info("  📍 Web UI:  http://127.0.0.1:8080")
     logger.info("  📍 Qdrant:  http://127.0.0.1:6333")
 
+    # 浏览器自动开启：仅「非受总管监管」的手动启动才开（OM_AUTO_OPEN_BROWSER != "0"）。
+    # 受总管监管时后台静默运行，改用托盘「打开界面」手动打开，避免重启时无限弹窗。
+    _auto_open = os.environ.get("OM_AUTO_OPEN_BROWSER", "1") != "0"
+
     # 备用浏览器开启（NiceGUI 的 webbrowser.open 在 Windows 下可能静默失败）
     def _fallback_browser():
         for i in range(30):
@@ -280,13 +260,14 @@ if __name__ in {"__main__", "__mp_main__"}:
                 break
             except Exception:
                 continue
-    threading.Thread(target=_fallback_browser, daemon=True).start()
+    if _auto_open:
+        threading.Thread(target=_fallback_browser, daemon=True).start()
 
     ui.run(
         title="Citrinitas · 熔知",
         host="0.0.0.0",
         port=8080,
         reload=False,
-        show=True,
+        show=_auto_open,
         storage_secret=os.environ.get("STORAGE_SECRET", "citrinitas-dev-secret-change-me"),
     )

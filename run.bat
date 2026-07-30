@@ -4,21 +4,6 @@ REM  Citrinitas - One-Click Launcher
 REM ============================================================
 chcp 65001 > nul
 
-REM ------------------------------------------------------------
-REM  Admin privilege auto-elevation
-REM ------------------------------------------------------------
-net session >nul 2>&1
-if %ERRORLEVEL% EQU 0 goto got_admin
-
-echo [ADMIN] Admin privileges required. Requesting UAC elevation...
-echo [ADMIN] Please click "Yes" to allow this program to run as administrator.
-powershell -NoProfile -Command "$p='%~f0';$w='%~dp0';Start-Process -FilePath $p -Verb RunAs -WorkingDirectory $w"
-exit /b
-
-REM ============================================================
-REM  Main routine (runs only with admin privileges)
-REM ============================================================
-:got_admin
 setlocal enabledelayedexpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -39,7 +24,6 @@ echo [1/8] Cleaning up stale processes...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%\scripts\port_cleanup.ps1" -Port 8080
 if %ERRORLEVEL% NEQ 0 (
     echo   [ERROR] Could not free port 8080.
-    pause
     goto error_exit
 )
 echo   OK
@@ -58,7 +42,6 @@ echo [2/8] Checking Python environment...
 if not exist "venv\Scripts\python.exe" (
     echo   [ERROR] Virtual environment not found.
     echo   Please run: install.ps1
-    pause
     goto error_exit
 )
 
@@ -136,8 +119,7 @@ REM start failed - Qdrant not found, ask user to install
 echo   [!] Qdrant not found on this system.
 echo   Citrinitas needs Qdrant for vector search.
 echo.
-set /p QDRANT_INSTALL="  Auto-install Qdrant locally (Y/N)? [Y]: "
-if "!QDRANT_INSTALL!"=="" set "QDRANT_INSTALL=Y"
+set "QDRANT_INSTALL=Y"
 if /i "!QDRANT_INSTALL!"=="Y" goto do_install_qdrant
 goto skip_qdrant
 
@@ -147,7 +129,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%\scripts\qdran
 if %ERRORLEVEL% NEQ 0 (
     echo   [ERROR] Auto-install failed. Please install manually.
     echo   Visit: https://github.com/qdrant/qdrant/releases
-    pause
     goto error_exit
 )
 
@@ -160,7 +141,6 @@ echo   Check qdrant.log for details:
 if exist "%PROJECT_DIR%\qdrant.log" (
     powershell -NoProfile -Command "Get-Content '%PROJECT_DIR%\qdrant.log' -Tail 20"
 )
-pause
 goto error_exit
 
 :skip_qdrant
@@ -200,7 +180,6 @@ echo   Check qdrant.log for details (last 20 lines):
 if exist "%PROJECT_DIR%\qdrant.log" (
     powershell -NoProfile -Command "Get-Content '%PROJECT_DIR%\qdrant.log' -Tail 20"
 )
-pause
 goto error_exit
 
 :qdrant_ok
@@ -246,8 +225,7 @@ echo.
 echo ============================================================
 echo   All services stopped. Goodbye!
 echo ============================================================
-pause
-goto :eof
+exit /b 0
 
 
 REM ============================================================
@@ -258,5 +236,4 @@ echo.
 echo ============================================================
 echo   Script exited with an error. See messages above.
 echo ============================================================
-pause
-cmd /k
+exit /b 1
