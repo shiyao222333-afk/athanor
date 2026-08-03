@@ -62,6 +62,8 @@ _CONTRACT_KEYS = {
     "ext_text1", "refined_status", "publish_date",
     # 溯源与语言（2026-07-21 修复）：炼真实产，强制覆盖遏制熔知分类器 LLM 漂移
     "language", "title", "author", "source_url", "up_name",
+    # v1.20.0 热度/互动数据（2026-08-03 落地）：单一 dict 字段，炼真透传强制覆盖
+    "engagement",
 }
 
 
@@ -94,5 +96,43 @@ def albedo_frontmatter_hook(state: dict) -> dict:
     return state
 
 
+# ── 来源归属钩子（2026-08-03 用户拍板）────────────────────────────────────
+# source_project 归属规则：已有归属（炼真 albedo-refined / 馏析 nigredo）不动；
+# 巨作提交的闪念笔记（front-matter 带 opus-magnum-note 签名）→ opus-magnum；
+# 其余无归属的摄入（熔知页面手动/上传/OCR 直入、收件箱无标记文件）→ citrinitas。
+# 语义（用户拍板）：熔知只给上游管线文档标来源归属；直入熔知的文档归属熔知，
+# 除非能明确识别来自巨作（闪念笔记的 source 签名）。
+_SOURCE_PROJECT_NOTE_SIGNATURE = "opus-magnum-note"
+
+
+def source_project_origin_hook(state: dict) -> dict:
+    """为无来源归属的文档补 source_project（巨作闪念笔记 → opus-magnum，其余 → citrinitas）。
+
+    仅当 metadata 尚无 source_project（非炼真/馏析产出）时生效；不覆盖上游归属。
+    """
+    md = state.setdefault("metadata", {})
+    if md.get("source_project"):
+        return state
+
+    # ① 巨作闪念笔记：front-matter 带 opus-magnum-note 签名（route_note / drop_watcher 投递）
+    fp = state.get("file_path") or ""
+    fm_source = ""
+    if fp:
+        try:
+            _, fm = parse_frontmatter(Path(fp).read_text(encoding="utf-8"))
+            if isinstance(fm, dict):
+                fm_source = fm.get("source") or ""
+        except Exception:
+            pass
+    if fm_source == _SOURCE_PROJECT_NOTE_SIGNATURE:
+        md["source_project"] = "opus-magnum"
+        return state
+
+    # ② 其余无归属（熔知页面直入 / 收件箱无标记文件）→ 归熔知
+    md["source_project"] = "citrinitas"
+    return state
+
+
 # 模块加载即注册（ingest_service._step_pre_store_hooks 会在管线中调用 get_hooks）
 register_hook(albedo_frontmatter_hook)
+register_hook(source_project_origin_hook)

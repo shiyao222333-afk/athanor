@@ -35,6 +35,7 @@ v0.5.0 初始规划为「快速开始优化」，实际执行时需求变更为�
 ## [Unreleased]
 
 ### Added
+- **v1.20.0 热度/互动数据可检索字段（engagement，2026-08-03 落地）**：`config/hooks._CONTRACT_KEYS` 注册 `engagement`（炼真 frontmatter 强制覆盖进 payload）+ `ingest_pipeline._prepare_metadata` 提取 + `_build_point` 写入（仅非空写，无互动数据的文档不写键，零影响现有数据）。单一 dict 字段承载 B站视频播放/点赞/投币/收藏/分享/评论/弹幕计数 + 三率 + danmaku_total_before（键名以 Nigredo 实际 `view_count` 为准）。为研究看板（标题 vs 播放 / 结构 vs 播放）提供结构化可检索数据基础。契约文档 `albedo-citrinitas-handoff-spec.md` §3.2 同步注册。**Payload Index（按播放量排序）待研究看板详析时再建**。
 - **#32 Albedo 中转② 元数据钩子（兑现 ADR-005）**：新增 `config/hooks.py:albedo_meta_hook`，摄入管线 `_step_pre_store_hooks` 阶段读取同目录 `{name}_refined.meta.json` sidecar，把 `ingestion_meta`（content_type/domain/temporal_nature/epistemic_status/trust_score 等）合并进 Qdrant payload。`config/hooks` 模块加载即注册，对其它摄入零影响。
 
 ### Fixed

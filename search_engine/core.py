@@ -20,12 +20,12 @@ from sparse_encoder import encode_sparse_query
 _VALID_FILTER_KEYS = {"content_type","domain","knowledge_type","subject","temporal_nature","epistemic_status","lifecycle","is_personal","trust_score_min"}
 
 
-def _build_qdrant_filter(facet_filter: dict) -> tuple:
-    """从 facet_filter 构建 Qdrant 过滤条件（must 数组）。
+def _build_qdrant_filter(facet_filter: dict, exclude_archived: bool = False) -> tuple:
+    """从 facet_filter 构建 Qdrant 过滤条件（must 数组）+ 归档排除（must_not）。
     返回 (filter_dict, warnings_list)。"""
-    if not facet_filter:
+    if not facet_filter and not exclude_archived:
         return None, []
-    _invalid_keys = set(facet_filter.keys()) - _VALID_FILTER_KEYS
+    _invalid_keys = set((facet_filter or {}).keys()) - _VALID_FILTER_KEYS
     warnings = []
     if _invalid_keys:
         warnings.append(f"facet_filter 无效键（已忽略）: {_invalid_keys}")
@@ -38,29 +38,43 @@ def _build_qdrant_filter(facet_filter: dict) -> tuple:
         })
 
     for key in ("content_type", "domain", "knowledge_type", "subject"):
-        if facet_filter.get(key):
+        if (facet_filter or {}).get(key):
             _add_match(key, facet_filter[key])
 
     for key in ("temporal_nature", "epistemic_status", "lifecycle"):
-        if facet_filter.get(key):
+        if (facet_filter or {}).get(key):
             must_conditions.append({
                 "key": key,
                 "match": {"value": facet_filter[key]}
             })
 
-    if "is_personal" in facet_filter:
+    if "is_personal" in (facet_filter or {}):
         must_conditions.append({
             "key": "is_personal",
             "match": {"value": facet_filter["is_personal"]}
         })
 
-    if facet_filter.get("trust_score_min") is not None:
+    if (facet_filter or {}).get("trust_score_min") is not None:
         must_conditions.append({
             "key": "trust_score",
             "range": {"gte": facet_filter["trust_score_min"]}
         })
 
-    return {"must": must_conditions} if must_conditions else None, warnings
+    # 归档排除：must_not 直接在 Qdrant 查询阶段排除（不是搜完再滤）
+    must_not_conditions = []
+    if exclude_archived:
+        must_not_conditions.append({
+            "key": "is_archived",
+            "match": {"value": True}
+        })
+        warnings.append("已排除归档内容（is_archived=true）")
+
+    filter_dict = {}
+    if must_conditions:
+        filter_dict["must"] = must_conditions
+    if must_not_conditions:
+        filter_dict["must_not"] = must_not_conditions
+    return (filter_dict if (must_conditions or must_not_conditions) else None), warnings
 
 
 def _query_qdrant_rrf(
@@ -148,6 +162,7 @@ def search(
     score_threshold: float = None,
     model: str = None,
     facet_filter: dict = None,
+    exclude_archived: bool = False,
 ) -> dict:
     """
     向量搜索知识库（支持分面过滤）。
@@ -208,8 +223,8 @@ def search(
     except Exception as e:
         return {"ok": False, "error": f"嵌入查询失败: {e}"}
 
-    # 构建过滤条件（分面过滤）
-    qdrant_filter, filter_warnings = _build_qdrant_filter(facet_filter)
+    # 构建过滤条件（分面过滤 + 归档排除）
+    qdrant_filter, filter_warnings = _build_qdrant_filter(facet_filter, exclude_archived=exclude_archived)
 
     # ── 搜索 Qdrant（原生混合查询：稠密 + 稀疏 → RRF 融合）──
     try:
@@ -219,8 +234,11 @@ def search(
 
     # ── 整理结果（v4.0 分组字段）──
     chunks = []
+    archived_leaked = 0  # 防静默失效：排除归档后结果里仍出现归档点 → 计数
     for r in results:
         payload = r.get("payload", {})
+        if exclude_archived and payload.get("is_archived", False):
+            archived_leaked += 1
         _title = payload.get("title") or payload.get("source") or ""
         _source = payload.get("source") or ""
         chunks.append({
@@ -288,10 +306,15 @@ def search(
         result.sort(key=lambda x: x[0], reverse=True)
         chunks = [ch for _, ch in result]
 
+    # 防静默失效：排除归档后结果里仍出现归档点 → 告警（说明过滤未生效）
+    if exclude_archived and archived_leaked > 0:
+        filter_warnings.append(f"⚠️ 归档排除疑似失效：结果中仍有 {archived_leaked} 个归档点（is_archived=true）")
+
     return {
         "ok": True,
         "query": query,
         "total": len(chunks),
         "chunks": chunks,
         "warnings": filter_warnings if filter_warnings else [],
+        "excluded_archived": exclude_archived,
     }

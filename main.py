@@ -268,6 +268,7 @@ if __name__ in {"__main__", "__mp_main__"}:
         host="0.0.0.0",
         port=8080,
         reload=False,
-        show=_auto_open,
+        show=False,   # 浏览器由上方 _fallback_browser 兜底打开（os.startfile 更可靠）；
+                      # 此处若再 show=True 会与兜底双开两个网页（用户 2026-08-02 反馈修复）
         storage_secret=os.environ.get("STORAGE_SECRET", "citrinitas-dev-secret-change-me"),
     )

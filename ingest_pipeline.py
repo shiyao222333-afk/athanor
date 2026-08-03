@@ -189,6 +189,8 @@ def _prepare_metadata(base_meta: dict, text: str, source: str, file_path: str) -
         "ingest_conf":    base_meta.get("confidence_overall", None),
         # 图片
         "valid_images":   base_meta.get("_valid_images", []),
+        # v1.20.0 热度/互动数据（2026-08-03 落地）：单一 dict 字段，由炼真契约透传
+        "engagement":     base_meta.get("engagement"),
         # 扩展槽透传
         "ext_text1": base_meta.get("ext_text1"),
         "ext_text2": base_meta.get("ext_text2"),
@@ -354,6 +356,9 @@ def _build_point(chunk: str, vec: list, i: int, total_chunks: int,
         "field_sources":  m["field_sources"],
         "ingest_conf":    m["ingest_conf"],
     }
+    # v1.20.0 热度/互动数据：仅非空写（dict 有值才进 payload，非炼真文档无此键）
+    if m.get("engagement"):
+        payload["engagement"] = m["engagement"]
     # 扩展槽（只写入有值的字段，不写 None）
     for i, val in enumerate([m.get("ext_text1"), m.get("ext_text2"), m.get("ext_text3"),
                               m.get("ext_text4"), m.get("ext_text5")], 1):

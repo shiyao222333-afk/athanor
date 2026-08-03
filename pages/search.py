@@ -70,6 +70,7 @@ def page_search():
                         query,
                         top_k.value,
                         search_col.value,
+                        exclude_archived=True,   # UI 搜索默认排除已归档内容
                     )
 
                     # 再调用 LLM 合成答案（可能较慢）
@@ -84,6 +85,7 @@ def page_search():
                         top_k.value,
                         search_col.value,
                         output_dir=OUTPUT_DIR,
+                        exclude_archived=True,   # AI 回答同样默认排除已归档内容
                     )
 
                     with results_area:
@@ -133,6 +135,7 @@ def page_search():
                         query,
                         top_k.value,
                         search_col.value,
+                        exclude_archived=True,   # 普通搜索同样默认排除已归档
                     )
                     with results_area:
                         results_area.clear()
@@ -147,6 +150,7 @@ def page_search():
                         search, query, 3, search_col.value,
                         None, None,                    # score_threshold, model 用默认
                         {"content_type": ["idea"]},    # facet_filter 只看想法/灵感
+                        True,                          # exclude_archived 排除已归档
                     )
                     if idea_result.get("ok") and idea_result.get("chunks"):
                         with results_area:

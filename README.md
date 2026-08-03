@@ -52,6 +52,8 @@
 ## ✨ 项目亮点
 
 - **📥 多格式摄入**：PDF / EPUB / Word / PPTX / 网页 / 图片 OCR / 纯文本，自动识别 8+ 种格式并提取元数据。
+- **📊 热度数据入库（engagement）**：B站视频摄入时自动带出播放 / 点赞 / 收藏 / 评论等 13 项热度数据，入库 payload 可直接按「市场验证度」排序（知识→行动系统据此标 🔥 重点推荐）。
+- **🚫 检索排除已归档**：搜索时查询阶段直接排除 `is_archived=true` 的内容（Qdrant must_not 过滤，非搜完再滤）；归档由知识→行动系统写入，UI 搜索 / AI 问答默认排除。
 - **🧠 三层分类管道（含系统预填层）**：文件自带信息 + 关键词规则 + AI 兜底，三层自动标注分面字段，你只需确认。
 - **🔬 认知验证层级（L0–L2）**：每条知识标「未验证 / 已证实 / 已 corroborated」，可信度一目了然。
 - **🎯 精确溯源**：每个答案标注出处（第几章第几段、哪份文件），点击可回溯原文。
@@ -206,10 +208,15 @@ citrinitas/
 │   ├── reports/             #   质检报告
 │   ├── dead_letter/         #   失败文件死信队列
 │   └── activity_log.jsonl   #   活动日志
-├── pages/                   # NiceGUI 界面（hub/ 子页、vocab、config、manage）
+├── search_engine/           # 检索引擎（core.py 向量检索+分面过滤+归档排除 / answer.py AI 问答合成）
+├── ingest_pipeline.py       # 摄入管线（_prepare_metadata 提取 + _build_point 写 payload，含 engagement）
+├── doc_manager.py           # 文档管理（update_metadata 单字段受控写 / set_doc_relations 关系）
+├── kb_query.py              # 核心引擎（__version__ 权威版本号，与 UI 解耦）
+├── config/                  # 配置（hooks.py 契约键 / classifications.py 词表 / settings.py）
+├── pages/                   # NiceGUI 界面（search 搜索 / hub 子页 / vocab / config / manage）
 ├── services/                # 摄入服务（ingest_service 等）
 ├── utils/                   # 工具层（file_handler 格式解析 / classification 分类）
-├── scripts/                 # 运维脚本（storage_doctor / vocab_doctor）
+├── scripts/                 # 运维脚本（storage_doctor / vocab_doctor / port_cleanup）
 ├── tests/                   # 契约测试 + 导入冒烟
 ├── docs/                    # 设计文档（schema / 竞品研究）
 ├── main.py                  # 应用入口
@@ -282,6 +289,15 @@ run.bat
 5. **管理知识** →「知识中枢」页面查看统计、审核队列、导出数据；配置页可一键强制全部摄入进待审核（便于验收新格式）
 
 > 📘 详细指南：[START.md](START.md)
+
+---
+
+## 📚 文档导航
+
+- 📜 项目宪法：[BLUEPRINT.md](BLUEPRINT.md)
+- 🗺️ 开发路线：[PROJECT_PLAN.md](PROJECT_PLAN.md)
+- 🔧 流程框图：[FLOWCHART.md](FLOWCHART.md)
+- 📐 字段设计规范：[docs/schema.md](docs/schema.md)（53 字段口径：39 基础键 + 14 扩展槽）
 
 ---
 

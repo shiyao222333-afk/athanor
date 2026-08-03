@@ -197,12 +197,14 @@ def answer(
     output_dir: str = None,
     table_split_threshold: int = None,
     facet_filter: dict = None,
+    exclude_archived: bool = False,
 ) -> dict:
     """
     端到端知识库问答：搜索 → LLM API 合成 → HTML 报告（KaTeX 公式渲染）。
 
     参数:
         facet_filter: 分面过滤条件（见 search() 函数说明）
+        exclude_archived: 是否排除已归档内容（is_archived=true）
     """
     from report_renderer import render_report_html
 
@@ -231,7 +233,7 @@ def answer(
     # 1. 搜索（单集合方案）
     sr = search(query, top_k=top_k, collection=collection or "athanor_v1",
                  score_threshold=threshold, model=model,
-                 facet_filter=facet_filter)
+                 facet_filter=facet_filter, exclude_archived=exclude_archived)
     raw_chunks = sr.get("chunks", [])
 
     if not sr.get("ok"):
