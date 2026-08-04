@@ -17,7 +17,10 @@ from sparse_encoder import encode_sparse_query
 
 
 # 有效过滤键（facet_filter 参数校验用）
-_VALID_FILTER_KEYS = {"content_type","domain","knowledge_type","subject","temporal_nature","epistemic_status","lifecycle","is_personal","trust_score_min"}
+_VALID_FILTER_KEYS = {"content_type","domain","knowledge_type","subject","temporal_nature","epistemic_status","lifecycle","is_personal","trust_score_min","author"}
+
+# author 存在 payload 的 origin 嵌套里，过滤时映射到 Qdrant 嵌套路径（2026-08-04）
+_AUTHOR_FILTER_KEY = "origin.author"
 
 
 def _build_qdrant_filter(facet_filter: dict, exclude_archived: bool = False) -> tuple:
@@ -40,6 +43,11 @@ def _build_qdrant_filter(facet_filter: dict, exclude_archived: bool = False) -> 
     for key in ("content_type", "domain", "knowledge_type", "subject"):
         if (facet_filter or {}).get(key):
             _add_match(key, facet_filter[key])
+
+    # UP主/作者过滤：facet_filter["author"] 映射到嵌套路径 origin.author
+    if (facet_filter or {}).get("author"):
+        author_val = facet_filter["author"]
+        _add_match(_AUTHOR_FILTER_KEY, [author_val] if isinstance(author_val, str) else author_val)
 
     for key in ("temporal_nature", "epistemic_status", "lifecycle"):
         if (facet_filter or {}).get(key):

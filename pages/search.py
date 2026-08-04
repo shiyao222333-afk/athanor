@@ -45,6 +45,11 @@ def page_search():
                 placeholder="例如：齿轮的失效形式有哪些？",
             ).classes("flex-1")
 
+            author_input = ui.input(
+                label="UP主/作者（可选）",
+                placeholder="例如：沐冰茶",
+            ).classes("w-40")
+
             top_k = ui.number(label="Top K", value=10, min=1, max=20, step=1).classes("w-20")
             use_llm = ui.switch("使用 AI 回答", value=True)
 
@@ -59,6 +64,11 @@ def page_search():
                 return
 
             try:
+                # UP主/作者过滤（可选）
+                facet_filter = None
+                if (author_input.value or "").strip():
+                    facet_filter = {"author": author_input.value.strip()}
+
                 if use_llm.value:
                     # 先搜索（较快），显示中间状态
                     with results_area:
@@ -85,6 +95,7 @@ def page_search():
                         top_k.value,
                         search_col.value,
                         output_dir=OUTPUT_DIR,
+                        facet_filter=facet_filter,
                         exclude_archived=True,   # AI 回答同样默认排除已归档内容
                     )
 
@@ -136,6 +147,7 @@ def page_search():
                         top_k.value,
                         search_col.value,
                         exclude_archived=True,   # 普通搜索同样默认排除已归档
+                        facet_filter=facet_filter,
                     )
                     with results_area:
                         results_area.clear()

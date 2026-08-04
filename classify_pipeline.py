@@ -82,7 +82,7 @@ SMART_DEFAULTS = {
     "trust_score":      3,
     "keywords":         [],
     "title":            "",
-    "author":           "",
+    "author":           "未知",
     "auto_summary":     "",
     "is_personal":      False,
     "knowledge_type":   "",
@@ -620,6 +620,8 @@ def classify_document(text: str, file_metadata: dict = None) -> dict:
     file_metadata = dict(file_metadata or {})
     if _fm.get("title") and not file_metadata.get("title"):
         file_metadata["title"] = _fm["title"]
+    if _fm.get("author") and not file_metadata.get("author"):
+        file_metadata["author"] = _fm["author"]  # 闪念笔记 frontmatter 带 author: 我（2026-08-04）
     if _fm.get("up_name") and not file_metadata.get("author"):
         file_metadata["author"] = _fm["up_name"]
     if _fm.get("source_url") and not file_metadata.get("source_url"):
