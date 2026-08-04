@@ -644,7 +644,10 @@ def classify_document(text: str, file_metadata: dict = None) -> dict:
     # 可选字段也尝试让 LLM 补充
     # knowledge_type / is_personal 已改为确定性规则推导（见 _derive_*），不再交给 LLM 兜底，杜绝漂移
     # udc_code 由 LLM 从受控词表选细分码（#60 修正 #37）；入库时 normalize_udc 校验，非词表清空+送审
-    optional_for_llm = ["keywords", "title", "author", "auto_summary", "trust_score",
+    # ⚠️ author 不进 LLM 兜底（2026-08-04）：没有源数据就默认空，绝不从正文猜——
+    #    曾把正文"研究人：许清楚"误当作者污染 52 条（陈云飞研究文件）。只认两个源：
+    #    文件元数据 author（file）+ 炼真 up_name 回填；都没有 → 保持默认空 ""。
+    optional_for_llm = ["keywords", "title", "auto_summary", "trust_score",
                         "udc_code"]
     missing_optional = [f for f in optional_for_llm if merged.get(f) is None]
     
