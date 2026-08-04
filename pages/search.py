@@ -52,6 +52,8 @@ def page_search():
 
             top_k = ui.number(label="Top K", value=10, min=1, max=20, step=1).classes("w-20")
             use_llm = ui.switch("使用 AI 回答", value=True)
+            # 2026-08-04：归档只影响各仪表盘清单，搜索默认包含归档；可手动勾掉临时排除
+            include_archived = ui.switch("包含已归档", value=True).props("color=green")
 
         search_btn = ui.button("🔍 搜索").props("color=blue size=lg")
         results_area = ui.column().classes("w-full mt-6")
@@ -80,7 +82,7 @@ def page_search():
                         query,
                         top_k.value,
                         search_col.value,
-                        exclude_archived=True,   # UI 搜索默认排除已归档内容
+                        exclude_archived=not include_archived.value,   # 勾选框：默认包含已归档
                     )
 
                     # 再调用 LLM 合成答案（可能较慢）
@@ -96,7 +98,7 @@ def page_search():
                         search_col.value,
                         output_dir=OUTPUT_DIR,
                         facet_filter=facet_filter,
-                        exclude_archived=True,   # AI 回答同样默认排除已归档内容
+                        exclude_archived=not include_archived.value,   # 勾选框：默认包含已归档
                     )
 
                     with results_area:
@@ -146,7 +148,7 @@ def page_search():
                         query,
                         top_k.value,
                         search_col.value,
-                        exclude_archived=True,   # 普通搜索同样默认排除已归档
+                        exclude_archived=not include_archived.value,   # 勾选框：默认包含已归档
                         facet_filter=facet_filter,
                     )
                     with results_area:
@@ -162,7 +164,7 @@ def page_search():
                         search, query, 3, search_col.value,
                         None, None,                    # score_threshold, model 用默认
                         {"content_type": ["idea"]},    # facet_filter 只看想法/灵感
-                        True,                          # exclude_archived 排除已归档
+                        exclude_archived=not include_archived.value,   # 勾选框：默认包含已归档
                     )
                     if idea_result.get("ok") and idea_result.get("chunks"):
                         with results_area:

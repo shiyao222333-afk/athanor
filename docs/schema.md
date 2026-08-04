@@ -336,6 +336,7 @@ LLM 分析文本语义推断的字段。**后备来源**：文件无 `title`/`au
 | `knowledge_type` | 仅 content_type=knowledge 时推断子类型 |
 | `is_personal` | 判断是否个人经验 |
 | `lifecycle` | 第6类（使用期手动填）；入库默认空，不推断 |
+| `stats.starred` | **第6类（使用期手动填）**；入库默认 `false`（初始值由程序写入），收藏/取消收藏由行动清单/熔知 UI 使用期手动管理，不推断 |
 
 ### 象限三：程序自动生成（System-generated）— 置信度 1.0
 
@@ -352,11 +353,11 @@ LLM 分析文本语义推断的字段。**后备来源**：文件无 `title`/`au
 | `timeline.ingested` | `datetime.now(timezone.utc)` |
 | `timeline.accessed` | 初始 `null`，查询时更新 |
 | `stats.access_count` | 初始 `0` |
-| `stats.starred` | 初始 `false` |
+| `stats.starred` | 初始 `false`（仅初始值；**状态属第6类使用期手动填**，见下方标注） |
 | `origin.ingest_method` | `"upload"` / `"manual"` / `"api"` |
 | `is_canonical` | 默认 `true`（第一个 chunk） |
 | `access_level` | 默认 `"private"` |
-| `is_archived` | 默认 `false` |
+| `is_archived` | 默认 `false`（**2026-08-04 起：归档由各仪表盘清单本地管理，不再写入本字段**——熔知搜索默认包含归档；本字段保留为历史只读标记） |
 | `batch_id` | 批次 ID（批量摄入时生成） |
 
 ### 象限四：智能默认值（Smart defaults）— 置信度 0.0
