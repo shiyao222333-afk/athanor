@@ -5,43 +5,43 @@
 # ═══════════════════════════════════════════
 
 # ── Web 框架 ──
-nicegui==3.13.0
-fastapi>=0.110.0
-uvicorn>=0.29.0
+nicegui==3.15.0
+fastapi>=0.141.1
+uvicorn>=0.52.1
 
 # ── 向量数据库 ──
-qdrant-client>=1.7.0
-grpcio>=1.50.0
+qdrant-client>=1.19.0
+grpcio>=1.83.0
 
 # ── LLM API ──
-openai>=1.0.0
+openai>=2.53.0
 
 # ── 嵌入模型（本地）──
-huggingface_hub>=1.0.0
+huggingface_hub>=1.26.0
 
 # ── HTTP / 工具 ──
-requests>=2.31.0
-PyYAML>=6.0
-python-dotenv>=1.0.0
+requests>=2.34.2
+PyYAML>=6.0.3
+python-dotenv>=1.2.2
 
 # ── 多格式文件处理 ──
-charset-normalizer>=3.4.0
-beautifulsoup4>=4.12.0
-pypdf>=5.0.0
-python-docx>=1.1.0
-python-pptx>=1.0.0
-lxml>=5.0.0
+charset-normalizer>=3.4.9
+beautifulsoup4>=4.15.0
+pypdf>=6.14.2
+python-docx>=1.2.0
+python-pptx>=1.0.2
+lxml>=6.1.1
 
 # ── 报告生成 ──
-fpdf2>=2.7.0
-pillow>=10.0.0
+fpdf2>=2.8.7
+pillow>=12.3.0
 
 # ── 中文分词 ──
-jieba>=0.42
+jieba>=0.42.1
 
 # ── 守望文件夹（文件监控）──
-watchdog>=4.0
+watchdog>=6.0.0
 
 # ── OCR ──
-paddlepaddle-gpu>=2.6.0
-paddleocr>=2.7.0
+paddlepaddle-gpu>=2.6.2
+paddleocr>=3.7.0
